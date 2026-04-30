@@ -117,4 +117,4 @@ New orders appear instantly without refreshing — Firebase pushes them in real 
 
 ## Admin Password
 Default: `hassan123`
-Change it in Admin → Settings → Security (saves to Firebase instantly)
+Change it in Admin → Settings → Security (saves to Firebase instantly )
