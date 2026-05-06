@@ -6,16 +6,20 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, orderBy } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey:            "PASTE_YOUR_API_KEY_HERE",
-  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
-  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId:             "PASTE_YOUR_APP_ID_HERE",
+  apiKey: "AIzaSyBpEm8iHeBQXK5LJJ9Etfq1PVwg7H7rmfw",
+  authDomain: "hassan-karyana-abaad.firebaseapp.com",
+  projectId: "hassan-karyana-abaad",
+  storageBucket: "hassan-karyana-abaad.firebasestorage.app",
+  messagingSenderId: "306931903406",
+  appId: "1:306931903406:web:086a7f96024162e379763f"
 };
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+
+
+
+
 
 // ── Firestore helpers ─────────────────────────────────────────────────────────
 
