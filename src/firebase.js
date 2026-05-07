@@ -2,25 +2,21 @@
 // Paste your Firebase config here
 // Firebase Console → Project Settings → Your Apps → firebaseConfig
 // ─────────────────────────────────────────────────────────────────────────────
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp }   from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot,
+         collection, addDoc, query, orderBy, updateDoc } from "firebase/firestore";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBpEm8iHeBQXK5LJJ9Etfq1PVwg7H7rmfw",
-  authDomain: "hassan-karyana-abaad.firebaseapp.com",
-  projectId: "hassan-karyana-abaad",
-  storageBucket: "hassan-karyana-abaad.firebasestorage.app",
-  messagingSenderId: "306931903406",
-  appId: "1:306931903406:web:086a7f96024162e379763f"
+  apiKey:            "PASTE_YOUR_API_KEY_HERE",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
+  appId:             "PASTE_YOUR_APP_ID_HERE",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// ── Firestore ─────────────────────────────────────────────────────────────────
+const db  = getFirestore(app);
 
 export async function fbGet(docPath) {
   try {
@@ -58,24 +54,4 @@ export async function fbUpdateOrderStatus(orderId, status) {
   try {
     await updateDoc(doc(db, "orders", orderId), { status });
   } catch(e) { console.warn("fbUpdateOrderStatus failed", e); }
-}
-
-// ── Storage image upload ──────────────────────────────────────────────────────
-// Uploads a File to /products/ in Firebase Storage.
-// onProgress(0-100) called during upload.
-// Returns public download URL string.
-
-export function fbUploadImage(file, onProgress) {
-  return new Promise((resolve, reject) => {
-    const safe = file.name.replace(/[^a-z0-9.]/gi, "_").toLowerCase();
-    const path = "products/" + Date.now() + "_" + safe;
-    const sref = ref(storage, path);
-    const task = uploadBytesResumable(sref, file);
-    task.on(
-      "state_changed",
-      snap => onProgress && onProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
-      err  => reject(err),
-      ()   => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject)
-    );
-  });
 }
