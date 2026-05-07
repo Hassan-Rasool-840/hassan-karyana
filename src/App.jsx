@@ -1,55 +1,55 @@
-import { useState, useEffect } from "react";
-import { fbGet, fbSet, fbListen, fbAddOrder, fbListenOrders, fbUpdateOrderStatus } from "./firebase.js";
+import { useState, useEffect, useRef } from "react";
+import { fbGet, fbSet, fbListen, fbAddOrder, fbListenOrders,
+         fbUpdateOrderStatus, fbUploadImage } from "./firebase.js";
 
-// ── Firestore document paths ──────────────────────────────────────────────────
-const STORE_PATH = "config/store";   // single doc for all store config
-const SAVED_LS   = "hk_saved_v5";   // saved orders stay local per device (localStorage)
+// ── Storage paths ─────────────────────────────────────────────────────────────
+const STORE_PATH = "config/store";
+const SAVED_LS   = "hk_saved_v5";
 
-function lsGet(k)    { try { const r=localStorage.getItem(k); return r?JSON.parse(r):null; } catch{return null;} }
-function lsSet(k,v)  { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} }
+function lsGet(k)   { try { const r=localStorage.getItem(k); return r?JSON.parse(r):null; } catch{return null;} }
+function lsSet(k,v) { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} }
 
-// ── Seed data (used only on very first launch before Firestore has data) ──────
+// ── Seed ──────────────────────────────────────────────────────────────────────
 const SEED = {
   pw: "hassan123",
   info: {
-    name:    "Hassan Karyana Store",
-    urdu:    "حسن کریانہ اسٹور",
-    owner:   "Hassan Rasool",
-    phone:   "0317-0500507",
-    address: "NW-590 Shop No 4, Moh-Raja Sultan Town, RWP",
-    wa:      "923170500507",
-    minOrder:  500,
-    delFee:    100,
-    freeAbove: 2000,
-    deliveryNote: "Free delivery on orders above Rs. 2000",
+    name:"Hassan Karyana Store", urdu:"حسن کریانہ اسٹور",
+    owner:"Hassan Rasool", phone:"0317-0500507",
+    address:"NW-590 Shop No 4, Moh-Raja Sultan Town, RWP",
+    wa:"923170500507", minOrder:500, delFee:100, freeAbove:2000,
+    deliveryNote:"Free delivery on orders above Rs. 2000",
   },
-  cats: ["Grains & Flour","Cooking Oils","Pulses","Spices","Essentials","Beverages","Snacks","Dairy","Cleaning"],
-  items: [
-    {id:1,  n:"Basmati Rice",         u:"باسمتی چاول",   c:"Grains & Flour", p:320, unit:"kg",    s:50, e:"🌾", d:"Premium long-grain basmati",  t:"rice chawal basmati",      f:true },
-    {id:2,  n:"Sunflower Oil",        u:"سورج مکھی تیل", c:"Cooking Oils",   p:480, unit:"litre", s:30, e:"🫙", d:"Pure sunflower cooking oil",  t:"oil tel cooking",          f:true },
-    {id:3,  n:"Refined Sugar",        u:"چینی",           c:"Essentials",     p:150, unit:"kg",    s:80, e:"🍬", d:"Fine white refined sugar",    t:"sugar cheeni shakkar",     f:false},
-    {id:4,  n:"Whole Wheat Flour",    u:"آٹا",            c:"Grains & Flour", p:180, unit:"kg",    s:60, e:"🌾", d:"Fresh chakki atta",           t:"flour atta wheat gandum",  f:false},
-    {id:5,  n:"Moong Daal",           u:"مونگ دال",       c:"Pulses",         p:280, unit:"kg",    s:25, e:"🫘", d:"Yellow split moong",          t:"daal moong lentil",        f:false},
-    {id:6,  n:"Chana Daal",           u:"چنا دال",        c:"Pulses",         p:260, unit:"kg",    s:35, e:"🫘", d:"Bengal gram split",           t:"daal chana channa",        f:false},
-    {id:7,  n:"Himalayan Salt",       u:"نمک",            c:"Essentials",     p:40,  unit:"pack",  s:100,e:"🧂", d:"Natural Himalayan salt",       t:"salt namak",               f:false},
-    {id:8,  n:"Red Chilli Powder",    u:"لال مرچ",        c:"Spices",         p:120, unit:"250g",  s:40, e:"🌶️",d:"Pure red chilli powder",      t:"chilli mirch lal",         f:false},
-    {id:9,  n:"Cumin Seeds",          u:"زیرہ",           c:"Spices",         p:90,  unit:"100g",  s:30, e:"🌿", d:"Whole cumin seeds",           t:"cumin zeera jeera",        f:false},
-    {id:10, n:"Turmeric Powder",      u:"ہلدی",           c:"Spices",         p:80,  unit:"100g",  s:45, e:"🟡", d:"Pure ground turmeric",        t:"turmeric haldi yellow",    f:false},
-    {id:11, n:"Lipton Tea",           u:"چائے",           c:"Beverages",      p:350, unit:"250g",  s:20, e:"🍵", d:"Premium black tea",           t:"tea chai lipton",          f:true },
-    {id:12, n:"Peek Freans Biscuits", u:"بسکٹ",           c:"Snacks",         p:60,  unit:"pack",  s:50, e:"🍪", d:"Marie / Sooper assorted",      t:"biscuit cookie snack",     f:false},
+  paymentAccounts:[
+    {id:1, type:"EasyPaisa", title:"EasyPaisa",     number:"0317-0500507", name:"Hassan Rasool", active:true},
+    {id:2, type:"Bank",      title:"Bank Transfer",  number:"1234567890",  name:"Hassan Rasool — MCB Bank", active:true},
   ],
-  deals: [
-    {id:1, title:"Ramadan Essentials", urdu:"رمضان پیک",     desc:"Basmati 5kg + Oil 2L + Sugar 2kg + Atta 5kg", price:3200, was:3800, on:true, emoji:"🌙", exp:""},
-    {id:2, title:"Weekly Bundle",      urdu:"ہفتہ وار سودا",  desc:"Atta 10kg + Daal Mix 1kg + Salt + Spices",    price:2400, was:2900, on:true, emoji:"🛒", exp:""},
+  cats:["Grains & Flour","Cooking Oils","Pulses","Spices","Essentials","Beverages","Snacks","Dairy","Cleaning"],
+  items:[
+    {id:1,  n:"Basmati Rice",         u:"باسمتی چاول",   c:"Grains & Flour", p:320,unit:"kg",   s:50,e:"🌾",d:"Premium long-grain basmati", t:"rice chawal basmati",     f:true, img:""},
+    {id:2,  n:"Sunflower Oil",        u:"سورج مکھی تیل", c:"Cooking Oils",   p:480,unit:"litre",s:30,e:"🫙",d:"Pure sunflower cooking oil", t:"oil tel cooking",         f:true, img:""},
+    {id:3,  n:"Refined Sugar",        u:"چینی",           c:"Essentials",     p:150,unit:"kg",   s:80,e:"🍬",d:"Fine white refined sugar",   t:"sugar cheeni shakkar",    f:false,img:""},
+    {id:4,  n:"Whole Wheat Flour",    u:"آٹا",            c:"Grains & Flour", p:180,unit:"kg",   s:60,e:"🌾",d:"Fresh chakki atta",          t:"flour atta wheat gandum", f:false,img:""},
+    {id:5,  n:"Moong Daal",           u:"مونگ دال",       c:"Pulses",         p:280,unit:"kg",   s:25,e:"🫘",d:"Yellow split moong",         t:"daal moong lentil",       f:false,img:""},
+    {id:6,  n:"Chana Daal",           u:"چنا دال",        c:"Pulses",         p:260,unit:"kg",   s:35,e:"🫘",d:"Bengal gram split",          t:"daal chana channa",       f:false,img:""},
+    {id:7,  n:"Himalayan Salt",       u:"نمک",            c:"Essentials",     p:40, unit:"pack", s:100,e:"🧂",d:"Natural Himalayan salt",     t:"salt namak",              f:false,img:""},
+    {id:8,  n:"Red Chilli Powder",    u:"لال مرچ",        c:"Spices",         p:120,unit:"250g", s:40, e:"🌶️",d:"Pure red chilli powder",   t:"chilli mirch lal",        f:false,img:""},
+    {id:9,  n:"Cumin Seeds",          u:"زیرہ",           c:"Spices",         p:90, unit:"100g", s:30, e:"🌿",d:"Whole cumin seeds",          t:"cumin zeera jeera",       f:false,img:""},
+    {id:10, n:"Turmeric Powder",      u:"ہلدی",           c:"Spices",         p:80, unit:"100g", s:45, e:"🟡",d:"Pure ground turmeric",       t:"turmeric haldi yellow",   f:false,img:""},
+    {id:11, n:"Lipton Tea",           u:"چائے",           c:"Beverages",      p:350,unit:"250g", s:20, e:"🍵",d:"Premium black tea",          t:"tea chai lipton",         f:true, img:""},
+    {id:12, n:"Peek Freans Biscuits", u:"بسکٹ",           c:"Snacks",         p:60, unit:"pack", s:50, e:"🍪",d:"Marie / Sooper assorted",    t:"biscuit cookie snack",    f:false,img:""},
   ],
-  tickers: [
-    {id:1, text:"🚚 Free delivery above Rs.2000! | Rs.2000 سے زیادہ پر مفت ڈیلیوری", on:true},
-    {id:2, text:"🌾 Fresh Basmati Rice arrived! | تازہ باسمتی چاول کا اسٹاک آگیا",   on:true},
+  deals:[
+    {id:1,title:"Ramadan Essentials",urdu:"رمضان پیک",   desc:"Basmati 5kg + Oil 2L + Sugar 2kg + Atta 5kg",price:3200,was:3800,on:true,emoji:"🌙",exp:""},
+    {id:2,title:"Weekly Bundle",     urdu:"ہفتہ وار سودا",desc:"Atta 10kg + Daal Mix 1kg + Salt + Spices",   price:2400,was:2900,on:true,emoji:"🛒",exp:""},
+  ],
+  tickers:[
+    {id:1,text:"🚚 Free delivery above Rs.2000! | Rs.2000 سے زیادہ پر مفت ڈیلیوری",on:true},
+    {id:2,text:"🌾 Fresh Basmati Rice arrived! | تازہ باسمتی چاول کا اسٹاک آگیا",  on:true},
   ],
 };
 
 // ── Search ────────────────────────────────────────────────────────────────────
-const SYN = {
+const SYN={
   "چاول":["rice","basmati","chawal"],"تیل":["oil","tel"],"چینی":["sugar","cheeni","shakkar"],
   "آٹا":["flour","atta","wheat","gandum"],"نمک":["salt","namak"],"مرچ":["chilli","mirch","pepper"],
   "زیرہ":["cumin","zeera","jeera"],"ہلدی":["turmeric","haldi"],"چائے":["tea","chai"],
@@ -93,6 +93,188 @@ function bs(bg,col,ex){ return Object.assign({background:bg,color:col,border:"no
   fontSize:14,transition:"opacity .15s"},ex||{}); }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// IMAGE UPLOAD BUTTON — reusable, shows progress bar, preview thumbnail
+// ─────────────────────────────────────────────────────────────────────────────
+function ImgUpload({ currentImg, onDone }) {
+  const [prog, setProg] = useState(null); // null=idle, 0-100=uploading
+  const [err,  setErr]  = useState("");
+  const ref2 = useRef();
+
+  async function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setErr("Max 5MB"); return; }
+    setErr(""); setProg(0);
+    try {
+      const url = await fbUploadImage(file, setProg);
+      onDone(url);
+      setProg(null);
+    } catch(ex) {
+      setErr("Upload failed — check Storage rules");
+      setProg(null);
+      console.error(ex);
+    }
+  }
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        {/* Thumbnail */}
+        <div style={{width:40,height:40,borderRadius:8,border:"1.5px solid #C8E6C9",
+                     overflow:"hidden",flexShrink:0,background:BG,
+                     display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>
+          {currentImg
+            ? <img src={currentImg} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} />
+            : "📷"}
+        </div>
+        {/* Upload button */}
+        <button onClick={()=>ref2.current.click()}
+                style={bs(prog!==null?"#B0BEC5":BG,prog!==null?MUTED:GN,
+                  {padding:"6px 12px",fontSize:12,borderRadius:8,whiteSpace:"nowrap",
+                   cursor:prog!==null?"not-allowed":"pointer"})}>
+          {prog!==null ? prog+"%" : currentImg ? "Change" : "Upload"}
+        </button>
+        <input ref={ref2} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile} />
+      </div>
+      {/* Progress bar */}
+      {prog!==null && (
+        <div style={{height:4,borderRadius:2,background:"#C8E6C9",overflow:"hidden"}}>
+          <div style={{height:"100%",width:prog+"%",background:GN,transition:"width .2s"}} />
+        </div>
+      )}
+      {err && <div style={{color:RED,fontSize:11}}>{err}</div>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BULK ADD FORM — add many items fast, one row per item
+// ─────────────────────────────────────────────────────────────────────────────
+const EMPTY_ROW = () => ({key:Date.now()+Math.random(),n:"",u:"",c:"",p:"",unit:"kg",s:"",e:"🛒",d:"",t:"",f:false,img:""});
+
+function BulkAdd({ cats, onAdd, onClose }) {
+  const [rows, setRows] = useState([EMPTY_ROW(),EMPTY_ROW(),EMPTY_ROW()]);
+  const [saving, setSaving] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState(null);
+  const fileRefs = useRef({});
+
+  function setRow(idx, field, val) {
+    setRows(r => r.map((x,i) => i===idx ? Object.assign({},x,{[field]:val}) : x));
+  }
+
+  function addRow() { setRows(r => [...r, EMPTY_ROW()]); }
+  function removeRow(idx) { setRows(r => r.filter((_,i)=>i!==idx)); }
+
+  async function handleImg(idx, file) {
+    if (!file) return;
+    if (file.size > 5*1024*1024) { alert("Max 5MB per image"); return; }
+    setUploadingIdx(idx);
+    try {
+      const url = await fbUploadImage(file, ()=>{});
+      setRow(idx, "img", url);
+    } catch(e) { alert("Upload failed"); }
+    setUploadingIdx(null);
+  }
+
+  function save() {
+    const valid = rows.filter(r => r.n.trim() && r.p);
+    if (!valid.length) { alert("Add at least one item with a name and price"); return; }
+    setSaving(true);
+    onAdd(valid);
+    setSaving(false);
+  }
+
+  return (
+    <div style={{background:"#fff",borderRadius:16,padding:20,boxShadow:SHD,marginBottom:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <h3 style={{margin:0,color:GM}}>⚡ Bulk Add — {rows.length} items</h3>
+        <button onClick={onClose} style={bs(BG,MUTED,{padding:"6px 14px",fontSize:13})}>Close</button>
+      </div>
+
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
+          <thead>
+            <tr style={{background:BG}}>
+              {["Img","Name *","اردو","Category","Price ₨ *","Unit","Stock","Emoji","Description","Tags","⭐",""].map((h,i)=>(
+                <th key={i} style={{padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:800,color:GN,whiteSpace:"nowrap"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row,idx)=>(
+              <tr key={row.key} style={{borderTop:"1px solid #C8E6C9",verticalAlign:"middle"}}>
+                {/* Image */}
+                <td style={{padding:"6px 8px"}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>
+                    <div style={{width:36,height:36,borderRadius:6,border:"1.5px solid #C8E6C9",overflow:"hidden",
+                                 background:BG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+                      {row.img ? <img src={row.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : "📷"}
+                    </div>
+                    <button onClick={()=>fileRefs.current[idx]?.click()}
+                            style={bs(BG,GN,{padding:"3px 8px",fontSize:10,borderRadius:6})}>
+                      {uploadingIdx===idx ? "…" : row.img ? "✓" : "Add"}
+                    </button>
+                    <input type="file" accept="image/*" style={{display:"none"}}
+                           ref={el=>fileRefs.current[idx]=el}
+                           onChange={e=>handleImg(idx,e.target.files[0])} />
+                  </div>
+                </td>
+                {/* Name */}
+                <td style={{padding:"6px 4px"}}><input value={row.n} onChange={e=>setRow(idx,"n",e.target.value)} placeholder="Item name" style={{...INP,minWidth:120,padding:"7px 10px"}}/></td>
+                {/* Urdu */}
+                <td style={{padding:"6px 4px"}}><input value={row.u} onChange={e=>setRow(idx,"u",e.target.value)} placeholder="اردو" style={{...INP,minWidth:90,padding:"7px 10px",fontFamily:"'Noto Nastaliq Urdu',serif"}}/></td>
+                {/* Category */}
+                <td style={{padding:"6px 4px"}}>
+                  <select value={row.c} onChange={e=>setRow(idx,"c",e.target.value)} style={{...INP,minWidth:110,padding:"7px 10px"}}>
+                    <option value="">-- Pick --</option>
+                    {cats.map(c=><option key={c}>{c}</option>)}
+                  </select>
+                </td>
+                {/* Price */}
+                <td style={{padding:"6px 4px"}}><input type="number" value={row.p} onChange={e=>setRow(idx,"p",e.target.value)} placeholder="0" style={{...INP,width:70,padding:"7px 10px"}}/></td>
+                {/* Unit */}
+                <td style={{padding:"6px 4px"}}>
+                  <select value={row.unit} onChange={e=>setRow(idx,"unit",e.target.value)} style={{...INP,width:80,padding:"7px 8px"}}>
+                    {["kg","g","litre","ml","pack","piece","dozen","250g","500g","100g","50g"].map(u=><option key={u}>{u}</option>)}
+                  </select>
+                </td>
+                {/* Stock */}
+                <td style={{padding:"6px 4px"}}><input type="number" value={row.s} onChange={e=>setRow(idx,"s",e.target.value)} placeholder="0" style={{...INP,width:60,padding:"7px 10px"}}/></td>
+                {/* Emoji */}
+                <td style={{padding:"6px 4px"}}><input value={row.e} onChange={e=>setRow(idx,"e",e.target.value)} style={{...INP,width:52,padding:"7px 8px",textAlign:"center"}}/></td>
+                {/* Desc */}
+                <td style={{padding:"6px 4px"}}><input value={row.d} onChange={e=>setRow(idx,"d",e.target.value)} placeholder="Short description" style={{...INP,minWidth:130,padding:"7px 10px"}}/></td>
+                {/* Tags */}
+                <td style={{padding:"6px 4px"}}><input value={row.t} onChange={e=>setRow(idx,"t",e.target.value)} placeholder="search tags" style={{...INP,minWidth:110,padding:"7px 10px"}}/></td>
+                {/* Featured */}
+                <td style={{padding:"6px 8px",textAlign:"center"}}><input type="checkbox" checked={!!row.f} onChange={e=>setRow(idx,"f",e.target.checked)}/></td>
+                {/* Remove */}
+                <td style={{padding:"6px 4px"}}>
+                  <button onClick={()=>removeRow(idx)} style={bs("#FFEBEE",RED,{padding:"4px 8px",fontSize:13,borderRadius:6})}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginTop:14,alignItems:"center"}}>
+        <button onClick={addRow} style={bs(BG,GN,{padding:"9px 18px",fontSize:13})}>+ Add Row</button>
+        <button onClick={()=>{for(let i=0;i<5;i++) setRows(r=>[...r,EMPTY_ROW()]);}}
+                style={bs(BG,MUTED,{padding:"9px 18px",fontSize:13})}>+5 Rows</button>
+        <span style={{flex:1,color:MUTED,fontSize:12}}>
+          {rows.filter(r=>r.n.trim()&&r.p).length} / {rows.length} rows ready
+        </span>
+        <button onClick={save} disabled={saving}
+                style={bs(GN,"#fff",{padding:"10px 28px",fontSize:15,opacity:saving?0.7:1})}>
+          {saving ? "Saving…" : "💾 Save All"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TICKER
 // ─────────────────────────────────────────────────────────────────────────────
 function Ticker({tickers}){
@@ -125,8 +307,9 @@ function Card({item,onAdd}){
          onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=SHD;}}>
       <div style={{background:"linear-gradient(135deg,#F1F8E9,#DCEDC8)",height:110,display:"flex",
                    alignItems:"center",justifyContent:"center",position:"relative"}}>
-        {item.img?<img src={item.img} alt={item.n} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                 :<span style={{fontSize:46}}>{item.e||"🛒"}</span>}
+        {item.img
+          ? <img src={item.img} alt={item.n} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          : <span style={{fontSize:46}}>{item.e||"🛒"}</span>}
         {item.f&&!oos&&<span style={{position:"absolute",top:7,left:7,background:GOLD,color:"#5D4037",fontSize:9,fontWeight:800,borderRadius:5,padding:"2px 7px"}}>⭐ POPULAR</span>}
         {oos&&<span style={{position:"absolute",top:7,right:7,background:RED,color:"#fff",fontSize:9,fontWeight:800,borderRadius:5,padding:"2px 7px"}}>OUT OF STOCK</span>}
       </div>
@@ -162,12 +345,8 @@ function Card({item,onAdd}){
 // ─────────────────────────────────────────────────────────────────────────────
 function CartDrawer({cart,info,onUpdate,onRemove,onCheckout,onClose}){
   const sub=cart.reduce((s,i)=>s+i.p*i.qty,0);
-  const min=info.minOrder||500;
-  const free=info.freeAbove||2000;
-  const fee=info.delFee||100;
-  const del=sub>=free?0:fee;
-  const total=sub+del;
-  const low=cart.length>0&&sub<min;
+  const min=info.minOrder||500, free=info.freeAbove||2000, fee=info.delFee||100;
+  const del=sub>=free?0:fee, total=sub+del, low=cart.length>0&&sub<min;
   return(
     <div style={{position:"fixed",top:0,right:0,bottom:0,width:Math.min(420,window.innerWidth),
                  background:"#fff",boxShadow:"-4px 0 32px rgba(0,0,0,0.18)",zIndex:1000,
@@ -178,8 +357,7 @@ function CartDrawer({cart,info,onUpdate,onRemove,onCheckout,onClose}){
       </div>
       {cart.length===0?(
         <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:MUTED,gap:8}}>
-          <span style={{fontSize:52}}>🛒</span>
-          <p style={{fontWeight:700,margin:0}}>Cart is empty</p>
+          <span style={{fontSize:52}}>🛒</span><p style={{fontWeight:700,margin:0}}>Cart is empty</p>
           <p style={{fontSize:13,margin:0}}>Start adding items!</p>
         </div>
       ):(
@@ -187,7 +365,10 @@ function CartDrawer({cart,info,onUpdate,onRemove,onCheckout,onClose}){
           <div style={{flex:1,overflowY:"auto",padding:14,display:"flex",flexDirection:"column",gap:9}}>
             {cart.map(item=>(
               <div key={item.id} style={{display:"flex",gap:10,alignItems:"center",background:BG,borderRadius:12,padding:"9px 12px"}}>
-                <span style={{fontSize:26,flexShrink:0}}>{item.e||"🛒"}</span>
+                <div style={{width:36,height:36,borderRadius:8,overflow:"hidden",flexShrink:0,
+                             background:"#DCEDC8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
+                  {item.img?<img src={item.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:item.e||"🛒"}
+                </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.n}</div>
                   <div style={{fontFamily:"'Noto Nastaliq Urdu',serif",fontSize:11,color:MUTED}}>{item.u}</div>
@@ -203,11 +384,7 @@ function CartDrawer({cart,info,onUpdate,onRemove,onCheckout,onClose}){
             ))}
           </div>
           <div style={{padding:14,borderTop:"2px solid #C8E6C9"}}>
-            {low&&(
-              <div style={{background:"#FFF3E0",border:"1.5px solid #E65100",borderRadius:10,padding:"9px 12px",marginBottom:10,fontSize:13,color:ORG,fontWeight:700}}>
-                ⚠️ Min order Rs.{min} — add Rs.{min-sub} more
-              </div>
-            )}
+            {low&&<div style={{background:"#FFF3E0",border:"1.5px solid #E65100",borderRadius:10,padding:"9px 12px",marginBottom:10,fontSize:13,color:ORG,fontWeight:700}}>⚠️ Min order Rs.{min} — add Rs.{min-sub} more</div>}
             <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:MUTED,marginBottom:3}}><span>Subtotal</span><span>₨{sub}</span></div>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:del===0?"#388E3C":MUTED,marginBottom:6}}><span>Delivery</span><span>{del===0?"FREE 🎉":"₨"+del}</span></div>
             {del>0&&sub<free&&<div style={{background:"#FFFDE7",borderRadius:8,padding:"6px 10px",fontSize:12,color:"#5D4037",marginBottom:8}}>Add ₨{free-sub} more for free delivery!</div>}
@@ -233,27 +410,32 @@ function CartDrawer({cart,info,onUpdate,onRemove,onCheckout,onClose}){
 // ─────────────────────────────────────────────────────────────────────────────
 // ORDER FORM
 // ─────────────────────────────────────────────────────────────────────────────
-function OrderForm({cart,total,info,onSubmit,onBack}){
+function OrderForm({cart,total,info,paymentAccounts,onSubmit,onBack}){
+  const activePay = ["Cash on Delivery", ...((paymentAccounts||[]).filter(a=>a.active).map(a=>a.title))];
   const [f,setF]=useState({name:"",phone:"",address:"",area:"",notes:"",pay:"Cash on Delivery"});
   const [err,setErr]=useState({});
-  const [submitting,setSubmitting]=useState(false);
+  const [sub,setSub]=useState(false);
   const set=(k,v)=>{ setF(p=>Object.assign({},p,{[k]:v})); setErr(p=>Object.assign({},p,{[k]:""})); };
+
+  // The selected payment account details (for bank/easypaisa instructions)
+  const selectedAccount = (paymentAccounts||[]).find(a=>a.title===f.pay && a.active);
+
   async function submit(){
     const e={};
     if(!f.name.trim()) e.name="Name required";
     if(!/^0\d{10}$/.test(f.phone)) e.phone="Valid number (03XX-XXXXXXX)";
     if(!f.address.trim()) e.address="Address required";
     if(Object.keys(e).length){ setErr(e); return; }
-    setSubmitting(true);
+    setSub(true);
     await onSubmit(Object.assign({},f,{cart,total,id:Date.now(),status:"Pending",at:new Date().toISOString()}));
-    setSubmitting(false);
+    setSub(false);
   }
   const fields=[
-    {k:"name",    lbl:"Full Name *",          ph:"e.g. Ali Ahmed"},
-    {k:"phone",   lbl:"Phone Number *",       ph:"03XX-XXXXXXX"},
-    {k:"address", lbl:"Delivery Address *",   ph:"House no, street, mohalla…",rows:2},
-    {k:"area",    lbl:"Area / Sector",        ph:"e.g. Raja Sultan Town"},
-    {k:"notes",   lbl:"Special Instructions", ph:"Substitutions, timing…",rows:2},
+    {k:"name",lbl:"Full Name *",ph:"e.g. Ali Ahmed"},
+    {k:"phone",lbl:"Phone Number *",ph:"03XX-XXXXXXX"},
+    {k:"address",lbl:"Delivery Address *",ph:"House no, street, mohalla…",rows:2},
+    {k:"area",lbl:"Area / Sector",ph:"e.g. Raja Sultan Town"},
+    {k:"notes",lbl:"Special Instructions",ph:"Substitutions, timing…",rows:2},
   ];
   return(
     <div style={{maxWidth:540,margin:"0 auto",padding:"0 16px 50px"}}>
@@ -271,17 +453,30 @@ function OrderForm({cart,total,info,onSubmit,onBack}){
         ))}
         <div>
           <label style={{fontSize:13,fontWeight:700,color:"#1C2B1E",display:"block",marginBottom:8}}>Payment Method</label>
-          <div style={{display:"flex",gap:8}}>
-            {["Cash on Delivery","EasyPaisa","JazzCash"].map(m=>(
-              <label key={m} style={{flex:1,border:"2px solid "+(f.pay===m?GN:BDR),borderRadius:10,
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {activePay.map(m=>(
+              <label key={m} style={{flex:"1 1 120px",border:"2px solid "+(f.pay===m?GN:BDR),borderRadius:10,
                                      padding:"9px 6px",textAlign:"center",cursor:"pointer",fontSize:12,
                                      fontWeight:f.pay===m?800:500,background:f.pay===m?BG:"#fff",
                                      color:f.pay===m?GN:MUTED,transition:"all .15s",display:"block"}}>
                 <input type="radio" style={{display:"none"}} checked={f.pay===m} onChange={()=>set("pay",m)}/>
-                {m}
+                {m==="Cash on Delivery"?"💵 Cash on Delivery":m}
               </label>
             ))}
           </div>
+          {/* Show account details when bank/easypaisa selected */}
+          {selectedAccount && (
+            <div style={{background:"#E8F5E9",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"12px 14px",marginTop:10}}>
+              <div style={{fontWeight:800,fontSize:13,color:GN,marginBottom:6}}>
+                📲 Send payment to:
+              </div>
+              <div style={{fontSize:14,fontWeight:900,color:"#1C2B1E",letterSpacing:0.5}}>{selectedAccount.number}</div>
+              <div style={{fontSize:13,color:MUTED,marginTop:2}}>{selectedAccount.name}</div>
+              <div style={{fontSize:12,color:ORG,marginTop:6,fontWeight:600}}>
+                ⚠ Send <strong>₨{total}</strong> then place order. Share screenshot on WhatsApp.
+              </div>
+            </div>
+          )}
         </div>
         <div style={{background:BG,borderRadius:12,padding:14}}>
           <div style={{fontWeight:800,color:GN,marginBottom:10}}>Summary — {cart.length} item{cart.length!==1?"s":""}</div>
@@ -294,9 +489,9 @@ function OrderForm({cart,total,info,onSubmit,onBack}){
             <span>Total</span><span>₨{total}</span>
           </div>
         </div>
-        <button onClick={submit} disabled={submitting}
-                style={bs(GN,"#fff",{padding:14,fontSize:15,borderRadius:12,width:"100%",opacity:submitting?0.7:1})}>
-          {submitting?"Placing order…":"✅ Confirm Order"}
+        <button onClick={submit} disabled={sub}
+                style={bs(GN,"#fff",{padding:14,fontSize:15,borderRadius:12,width:"100%",opacity:sub?0.7:1})}>
+          {sub?"Placing order…":"✅ Confirm Order"}
         </button>
       </div>
     </div>
@@ -316,9 +511,7 @@ function Success({order,info,onBack,onSave}){
         <div style={{fontSize:66,animation:"bounce .6s ease"}}>✅</div>
         <h1 style={{color:GN,fontFamily:"'Noto Nastaliq Urdu',serif",margin:"8px 0 4px"}}>آرڈر مل گیا!</h1>
         <h2 style={{color:GM,marginTop:0,marginBottom:10}}>Order Confirmed!</h2>
-        <p style={{color:MUTED,fontSize:14,margin:"0 0 14px"}}>
-          Thank you <strong>{order.name}</strong>! We'll call you on <strong>{order.phone}</strong>.
-        </p>
+        <p style={{color:MUTED,fontSize:14,margin:"0 0 14px"}}>Thank you <strong>{order.name}</strong>! We'll call you on <strong>{order.phone}</strong>.</p>
         <div style={{background:BG,borderRadius:12,padding:14,marginBottom:16,textAlign:"left"}}>
           <div style={{fontSize:13,color:MUTED}}>Order #{String(order.id).slice(-6)} · {order.pay}</div>
           <div style={{fontWeight:900,color:GN,fontSize:20,marginTop:6}}>Total: ₨{order.total}</div>
@@ -335,7 +528,7 @@ function Success({order,info,onBack,onSave}){
           </div>
         )}
         {step==="done"&&<div style={{background:"#E8F5E9",borderRadius:10,padding:"8px 12px",marginBottom:10,color:GN,fontSize:13,fontWeight:700}}>✓ Saved! Find it in "Saved Orders".</div>}
-        <a href={"https://wa.me/"+(info.wa||"923170500507")+"?text="+encodeURIComponent("Hi! Order #"+String(order.id).slice(-6)+" placed. Confirm please. Total: ₨"+order.total)}
+        <a href={"https://wa.me/"+(info.wa||"923170500507")+"?text="+encodeURIComponent("Hi! Order #"+String(order.id).slice(-6)+" placed. Please confirm. Total: ₨"+order.total)}
            target="_blank" rel="noreferrer"
            style={{display:"block",background:"#25D366",color:"#fff",padding:"11px 20px",borderRadius:12,textDecoration:"none",fontWeight:800,marginBottom:10,fontSize:14}}>
           💬 Confirm on WhatsApp
@@ -373,9 +566,7 @@ function SavedOrders({saved,catalog,onReorder,onDelete,onBack}){
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:12}}>
                 <div>
                   <div style={{fontWeight:800,fontSize:15}}>{sv.name}</div>
-                  <div style={{color:MUTED,fontSize:12,marginTop:2}}>
-                    {new Date(sv.at).toLocaleDateString("en-PK",{day:"numeric",month:"short",year:"numeric"})} · {sv.items.length} items
-                  </div>
+                  <div style={{color:MUTED,fontSize:12,marginTop:2}}>{new Date(sv.at).toLocaleDateString("en-PK",{day:"numeric",month:"short",year:"numeric"})} · {sv.items.length} items</div>
                 </div>
                 <div style={{display:"flex",gap:8,flexShrink:0}}>
                   <button onClick={()=>onReorder(enriched.filter(i=>!i.gone))} style={bs(GN,"#fff",{padding:"7px 13px",fontSize:13,borderRadius:9})}>🔄 Reorder</button>
@@ -402,23 +593,23 @@ function SavedOrders({saved,catalog,onReorder,onDelete,onBack}){
 // ADMIN
 // ─────────────────────────────────────────────────────────────────────────────
 function Admin({store,orders,onSaveStore,onLogout}){
-  const [tab,setTab]=useState("orders");
+  const [tab,setTab]=useState("catalog"); // start on catalog for bulk adding
   const [st,setSt]=useState(store);
   const [saving,setSaving]=useState(false);
   const [toast,setToast]=useState("");
   const [editId,setEditId]=useState(null);
+  const [showBulk,setShowBulk]=useState(false);
+  const [catFilter,setCatFilter]=useState("All");
+  const [catSearch,setCatSearch]=useState("");
   const [newCat,setNewCat]=useState("");
-  const [niForm,setNiForm]=useState({n:"",u:"",c:store.cats[0]||"",p:"",unit:"kg",s:"",e:"🛒",d:"",t:"",f:false,img:""});
   const [ndForm,setNdForm]=useState({title:"",urdu:"",desc:"",price:"",was:"",emoji:"🎁",on:true,exp:""});
   const [ntText,setNtText]=useState("");
   const [oSrch,setOSrch]=useState("");
   const [oStat,setOStat]=useState("All");
-
-  // Real-time orders from Firestore — passed in as prop, already live
   const [liveOrders,setLiveOrders]=useState(orders);
-  useEffect(()=>{ setLiveOrders(orders); },[orders]);
+  useEffect(()=>setLiveOrders(orders),[orders]);
 
-  function showToast(m){ setToast(m); setTimeout(()=>setToast(""),2200); }
+  function showToast(m){ setToast(m); setTimeout(()=>setToast(""),2500); }
 
   async function saveStore(d){
     setSaving(true);
@@ -426,6 +617,13 @@ function Admin({store,orders,onSaveStore,onLogout}){
     setSaving(false); showToast("✓ Saved to Firebase!");
   }
   function upStore(fn){ setSt(prev=>{ const n=fn(prev); saveStore(n); return n; }); }
+
+  function bulkAdd(rows){
+    const newItems = rows.map(r=>Object.assign({},r,{id:Date.now()+Math.random(),p:+r.p,s:+r.s||0}));
+    upStore(d=>Object.assign({},d,{items:[...d.items,...newItems]}));
+    setShowBulk(false);
+    showToast(newItems.length+" items added!");
+  }
 
   const STATUSES=["Pending","Confirmed","Preparing","Out for Delivery","Delivered","Cancelled"];
   const SCOL={Pending:"#E65100",Confirmed:"#1565C0",Preparing:"#6A1B9A","Out for Delivery":"#00838F",Delivered:"#2E7D32",Cancelled:RED};
@@ -437,9 +635,16 @@ function Admin({store,orders,onSaveStore,onLogout}){
     return true;
   });
 
+  // Filtered catalog view
+  const catItems = st.items.filter(it=>{
+    if(catFilter!=="All"&&it.c!==catFilter) return false;
+    if(catSearch&&![it.n,it.u,it.c].some(x=>(x||"").toLowerCase().includes(catSearch.toLowerCase()))) return false;
+    return true;
+  });
+
   const TABS=[
     {id:"orders",  lbl:"🧾 Orders",      badge:pending},
-    {id:"catalog", lbl:"📦 Catalog"},
+    {id:"catalog", lbl:"📦 Catalog ("+st.items.length+")"},
     {id:"cats",    lbl:"🏷 Categories"},
     {id:"deals",   lbl:"🎁 Deals"},
     {id:"tickers", lbl:"📢 Ticker"},
@@ -457,7 +662,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
           <div style={{fontSize:11,opacity:0.7}}>🔥 Firebase live sync · {st.info.name}</div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>saveStore()} style={bs(GOLD,GN,{padding:"7px 14px",fontSize:12})}>{saving?"Saving…":"💾 Save"}</button>
+          <button onClick={()=>saveStore()} style={bs(GOLD,GN,{padding:"7px 14px",fontSize:12})}>{saving?"Syncing…":"💾 Save"}</button>
           <button onClick={onLogout} style={bs("rgba(255,255,255,0.18)","#fff",{padding:"7px 12px",fontSize:12})}>← Store</button>
         </div>
       </div>
@@ -470,14 +675,12 @@ function Admin({store,orders,onSaveStore,onLogout}){
         ))}
       </div>
 
-      <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
+      <div style={{padding:20,maxWidth:1200,margin:"0 auto"}}>
 
+        {/* ── ORDERS ── */}
         {tab==="orders"&&(
           <div>
-            <h2 style={{color:GN,marginBottom:14}}>
-              Orders — Live from Firebase 🔥
-              <span style={{fontSize:13,fontWeight:400,color:MUTED,marginLeft:10}}>Updates instantly on all devices</span>
-            </h2>
+            <h2 style={{color:GN,marginBottom:14}}>Orders — Live 🔥</h2>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
               {["All","Pending","Confirmed","Preparing","Out for Delivery","Delivered","Cancelled"].map(s=>{
                 const cnt=s==="All"?liveOrders.length:liveOrders.filter(o=>o.status===s).length;
@@ -490,7 +693,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
                 );
               })}
             </div>
-            <input value={oSrch} onChange={e=>setOSrch(e.target.value)} placeholder="Search name, phone, order ID…" style={Object.assign({},INP,{maxWidth:360,marginBottom:14})}/>
+            <input value={oSrch} onChange={e=>setOSrch(e.target.value)} placeholder="Search name, phone, ID…" style={Object.assign({},INP,{maxWidth:360,marginBottom:14})}/>
             {!fOrds.length
               ?<div style={{textAlign:"center",padding:48,color:MUTED}}>No orders found</div>
               :fOrds.map(ord=>(
@@ -506,8 +709,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:7,alignItems:"flex-end"}}>
                       <span style={{background:(SCOL[ord.status]||"#999")+"22",color:SCOL[ord.status]||"#999",fontWeight:800,fontSize:12,borderRadius:8,padding:"3px 12px"}}>{ord.status}</span>
-                      <select value={ord.status}
-                              onChange={e=>fbUpdateOrderStatus(ord._id,e.target.value)}
+                      <select value={ord.status} onChange={e=>fbUpdateOrderStatus(ord._id,e.target.value)}
                               style={{border:"1.5px solid #C8E6C9",borderRadius:8,padding:"5px 8px",fontSize:12,fontFamily:"'Nunito',sans-serif",outline:"none"}}>
                         {STATUSES.map(s=><option key={s}>{s}</option>)}
                       </select>
@@ -529,59 +731,71 @@ function Admin({store,orders,onSaveStore,onLogout}){
           </div>
         )}
 
+        {/* ── CATALOG ── */}
         {tab==="catalog"&&(
           <div>
-            <h2 style={{color:GN,marginBottom:14}}>Product Catalog ({st.items.length})</h2>
-            <div style={{background:"#fff",borderRadius:16,padding:18,marginBottom:20,boxShadow:SHD}}>
-              <h3 style={{color:GM,marginTop:0}}>+ Add Product</h3>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
-                {[["n","Name (English)"],["u","اردو نام"],["p","Price ₨"],["unit","Unit"],["s","Stock"],["e","Emoji"],["d","Description"],["t","Search Tags"],["img","Image URL"]].map(([k,lbl])=>(
-                  <div key={k}>
-                    <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>{lbl}</label>
-                    <input value={niForm[k]} onChange={ev=>setNiForm(x=>Object.assign({},x,{[k]:ev.target.value}))} style={INP}/>
-                  </div>
-                ))}
-                <div>
-                  <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Category</label>
-                  <select value={niForm.c} onChange={e=>setNiForm(x=>Object.assign({},x,{c:e.target.value}))} style={INP}>
-                    {st.cats.map(c=><option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div style={{display:"flex",alignItems:"center",gap:7,paddingTop:18}}>
-                  <input type="checkbox" id="feat_new" checked={niForm.f} onChange={e=>setNiForm(x=>Object.assign({},x,{f:e.target.checked}))}/>
-                  <label htmlFor="feat_new" style={{cursor:"pointer",fontWeight:700,fontSize:13}}>⭐ Featured</label>
-                </div>
-              </div>
-              <button onClick={()=>{
-                if(!niForm.n||!niForm.p){showToast("Name & price required");return;}
-                upStore(d=>Object.assign({},d,{items:[...d.items,Object.assign({},niForm,{id:Date.now(),p:+niForm.p,s:+niForm.s||0})]}));
-                setNiForm({n:"",u:"",c:st.cats[0]||"",p:"",unit:"kg",s:"",e:"🛒",d:"",t:"",f:false,img:""});
-                showToast("Product added!");
-              }} style={bs(GN,"#fff",{marginTop:12,padding:"9px 22px"})}>Add Product</button>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,marginBottom:16}}>
+              <h2 style={{color:GN,margin:0}}>Product Catalog ({st.items.length} items)</h2>
+              <button onClick={()=>setShowBulk(!showBulk)}
+                      style={bs(showBulk?"#FFEBEE":GOLD,showBulk?RED:GN,{padding:"9px 18px",fontSize:14})}>
+                {showBulk?"✕ Close Bulk Add":"⚡ Bulk Add Items"}
+              </button>
             </div>
+
+            {/* Bulk add panel */}
+            {showBulk&&<BulkAdd cats={st.cats} onAdd={bulkAdd} onClose={()=>setShowBulk(false)}/>}
+
+            {/* Single add form */}
+            {!showBulk&&(
+              <div style={{background:"#fff",borderRadius:16,padding:18,marginBottom:20,boxShadow:SHD}}>
+                <h3 style={{color:GM,marginTop:0}}>+ Add Single Product</h3>
+                <SingleAddForm cats={st.cats} onAdd={item=>{
+                  upStore(d=>Object.assign({},d,{items:[...d.items,item]}));
+                  showToast("Product added!");
+                }}/>
+              </div>
+            )}
+
+            {/* Filter bar */}
+            <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+              <input value={catSearch} onChange={e=>setCatSearch(e.target.value)}
+                     placeholder="Search catalog…" style={Object.assign({},INP,{maxWidth:220,padding:"7px 12px"})}/>
+              <select value={catFilter} onChange={e=>setCatFilter(e.target.value)} style={Object.assign({},INP,{width:"auto",padding:"7px 12px"})}>
+                <option value="All">All Categories</option>
+                {st.cats.map(c=><option key={c}>{c}</option>)}
+              </select>
+              <span style={{color:MUTED,fontSize:13}}>{catItems.length} showing</span>
+            </div>
+
+            {/* Table */}
             <div style={{background:"#fff",borderRadius:16,overflow:"hidden",boxShadow:SHD}}>
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr style={{background:BG}}>
-                    {["","Name","Urdu","Cat","Price","Unit","Stock","⭐",""].map((h,i)=>(
-                      <th key={i} style={{padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:800,color:GN,whiteSpace:"nowrap"}}>{h}</th>
-                    ))}
-                  </tr></thead>
+                  <thead>
+                    <tr style={{background:BG}}>
+                      {["Img","Name","Urdu","Cat","Price","Unit","Stock","⭐",""].map((h,i)=>(
+                        <th key={i} style={{padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:800,color:GN,whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
-                    {st.items.map((it,idx)=>{
+                    {catItems.map((it,idx)=>{
                       const ed=editId===it.id;
                       const up=(k,v)=>setSt(d=>Object.assign({},d,{items:d.items.map(i=>i.id===it.id?Object.assign({},i,{[k]:v}):i)}));
                       return(
-                        <tr key={it.id} style={{borderTop:"1px solid #C8E6C9",background:idx%2===0?"#fff":"#fafff8"}}>
-                          <td style={{padding:"9px 12px",fontSize:22}}>{it.e}</td>
-                          <td style={{padding:"9px 12px"}}>{ed?<input value={it.n} onChange={e=>up("n",e.target.value)} style={Object.assign({},INP,{width:120})}/>:<span style={{fontWeight:700}}>{it.n}</span>}</td>
-                          <td style={{padding:"9px 12px",fontFamily:"'Noto Nastaliq Urdu',serif",fontSize:12}}>{it.u}</td>
-                          <td style={{padding:"9px 12px"}}><span style={{background:BG,borderRadius:5,padding:"2px 7px",fontSize:11}}>{it.c}</span></td>
-                          <td style={{padding:"9px 12px"}}>{ed?<input type="number" value={it.p} onChange={e=>up("p",+e.target.value)} style={Object.assign({},INP,{width:80})}/>:<span style={{fontWeight:900,color:GM}}>₨{it.p}</span>}</td>
-                          <td style={{padding:"9px 12px",color:MUTED,fontSize:12}}>{it.unit}</td>
-                          <td style={{padding:"9px 12px"}}>{ed?<input type="number" value={it.s} onChange={e=>up("s",+e.target.value)} style={Object.assign({},INP,{width:70})}/>:<span style={{fontWeight:700,color:it.s>10?"#388E3C":it.s>0?ORG:RED}}>{it.s}</span>}</td>
-                          <td style={{padding:"9px 12px",textAlign:"center"}}><input type="checkbox" checked={!!it.f} onChange={e=>up("f",e.target.checked)}/></td>
-                          <td style={{padding:"9px 12px"}}>
+                        <tr key={it.id} style={{borderTop:"1px solid #C8E6C9",background:idx%2===0?"#fff":"#fafff8",verticalAlign:"middle"}}>
+                          {/* Image upload */}
+                          <td style={{padding:"8px 12px"}}>
+                            <ImgUpload currentImg={it.img||""} onDone={url=>{up("img",url);saveStore();}}/>
+                          </td>
+                          <td style={{padding:"8px 12px"}}>{ed?<input value={it.n} onChange={e=>up("n",e.target.value)} style={Object.assign({},INP,{width:120})}/>:<span style={{fontWeight:700}}>{it.n}</span>}</td>
+                          <td style={{padding:"8px 12px",fontFamily:"'Noto Nastaliq Urdu',serif",fontSize:12}}>{it.u}</td>
+                          <td style={{padding:"8px 12px"}}><span style={{background:BG,borderRadius:5,padding:"2px 7px",fontSize:11}}>{it.c}</span></td>
+                          <td style={{padding:"8px 12px"}}>{ed?<input type="number" value={it.p} onChange={e=>up("p",+e.target.value)} style={Object.assign({},INP,{width:80})}/>:<span style={{fontWeight:900,color:GM}}>₨{it.p}</span>}</td>
+                          <td style={{padding:"8px 12px",color:MUTED,fontSize:12}}>{it.unit}</td>
+                          <td style={{padding:"8px 12px"}}>{ed?<input type="number" value={it.s} onChange={e=>up("s",+e.target.value)} style={Object.assign({},INP,{width:70})}/>:<span style={{fontWeight:700,color:it.s>10?"#388E3C":it.s>0?ORG:RED}}>{it.s}</span>}</td>
+                          <td style={{padding:"8px 12px",textAlign:"center"}}><input type="checkbox" checked={!!it.f} onChange={e=>up("f",e.target.checked)}/></td>
+                          <td style={{padding:"8px 12px"}}>
                             <div style={{display:"flex",gap:5}}>
                               <button onClick={()=>{if(ed){saveStore();setEditId(null);}else setEditId(it.id);}} style={bs(ed?"#388E3C":BG,ed?"#fff":GN,{padding:"4px 10px",fontSize:11})}>{ed?"✓":"Edit"}</button>
                               <button onClick={()=>{if(!window.confirm("Delete?"))return;upStore(d=>Object.assign({},d,{items:d.items.filter(i=>i.id!==it.id)}));}} style={bs("#FFEBEE",RED,{padding:"4px 10px",fontSize:11})}>Del</button>
@@ -597,6 +811,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
           </div>
         )}
 
+        {/* ── CATEGORIES ── */}
         {tab==="cats"&&(
           <div>
             <h2 style={{color:GN,marginBottom:14}}>Manage Categories</h2>
@@ -629,6 +844,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
           </div>
         )}
 
+        {/* ── DEALS ── */}
         {tab==="deals"&&(
           <div>
             <h2 style={{color:GN,marginBottom:14}}>DC Deals & Bundles</h2>
@@ -636,15 +852,11 @@ function Admin({store,orders,onSaveStore,onLogout}){
               <h3 style={{color:GM,marginTop:0}}>+ Add Deal</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))",gap:10}}>
                 {[["title","Title (English)"],["urdu","عنوان (اردو)"],["desc","Items included"],["price","Deal Price ₨"],["was","Original Price ₨"],["emoji","Emoji"]].map(([k,lbl])=>(
-                  <div key={k}>
-                    <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>{lbl}</label>
-                    <input value={ndForm[k]} onChange={e=>setNdForm(x=>Object.assign({},x,{[k]:e.target.value}))} style={INP}/>
-                  </div>
+                  <div key={k}><label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>{lbl}</label>
+                  <input value={ndForm[k]} onChange={e=>setNdForm(x=>Object.assign({},x,{[k]:e.target.value}))} style={INP}/></div>
                 ))}
-                <div>
-                  <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Expiry</label>
-                  <input type="date" value={ndForm.exp} onChange={e=>setNdForm(x=>Object.assign({},x,{exp:e.target.value}))} style={INP}/>
-                </div>
+                <div><label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Expiry</label>
+                <input type="date" value={ndForm.exp} onChange={e=>setNdForm(x=>Object.assign({},x,{exp:e.target.value}))} style={INP}/></div>
               </div>
               <button onClick={()=>{
                 if(!ndForm.title||!ndForm.price){showToast("Title & price required");return;}
@@ -663,7 +875,8 @@ function Admin({store,orders,onSaveStore,onLogout}){
                     <div style={{color:MUTED,fontSize:12,marginTop:3}}>{d.desc}</div>
                     <div style={{display:"flex",gap:8,marginTop:5,alignItems:"center"}}>
                       <span style={{fontWeight:900,color:GM,fontSize:17}}>₨{d.price}</span>
-                      {d.was>0&&<><span style={{textDecoration:"line-through",color:"#aaa",fontSize:13}}>₨{d.was}</span><span style={{background:RED,color:"#fff",fontSize:10,borderRadius:5,padding:"2px 7px",fontWeight:700}}>-{Math.round((1-d.price/d.was)*100)}%</span></>}
+                      {d.was>0&&<><span style={{textDecoration:"line-through",color:"#aaa",fontSize:13}}>₨{d.was}</span>
+                      <span style={{background:RED,color:"#fff",fontSize:10,borderRadius:5,padding:"2px 7px",fontWeight:700}}>-{Math.round((1-d.price/d.was)*100)}%</span></>}
                     </div>
                     {d.exp&&<div style={{fontSize:11,color:ORG,marginTop:3}}>⏰ Expires {d.exp}</div>}
                   </div>
@@ -680,6 +893,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
           </div>
         )}
 
+        {/* ── TICKER ── */}
         {tab==="tickers"&&(
           <div>
             <h2 style={{color:GN,marginBottom:14}}>Announcement Ticker</h2>
@@ -707,6 +921,7 @@ function Admin({store,orders,onSaveStore,onLogout}){
           </div>
         )}
 
+        {/* ── SETTINGS ── */}
         {tab==="settings"&&(
           <div>
             <h2 style={{color:GN,marginBottom:18}}>Store Settings</h2>
@@ -731,18 +946,114 @@ function Admin({store,orders,onSaveStore,onLogout}){
                   ))}
                 </div>
                 <div style={{background:"#fff",borderRadius:16,padding:22,boxShadow:SHD}}>
-                  <h3 style={{color:GM,marginTop:0}}>Security</h3>
-                  <label style={{fontSize:12,fontWeight:700,color:MUTED,display:"block",marginBottom:3}}>Admin Password</label>
-                  <input type="password" value={st.pw||""} onChange={e=>setSt(d=>Object.assign({},d,{pw:e.target.value}))} style={INP}/>
-                  <p style={{color:MUTED,fontSize:11,marginTop:6}}>Saved to Firebase — same on all devices.</p>
+                  <h3 style={{color:GM,marginTop:0}}>💳 Payment Accounts</h3>
+                  <p style={{fontSize:12,color:MUTED,marginTop:0,marginBottom:12}}>Customers see these on the order form. "Cash on Delivery" is always shown automatically.</p>
+                  <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+                    {(st.paymentAccounts||[]).map(acc=>(
+                      <div key={acc.id} style={{display:"flex",gap:10,alignItems:"center",background:BG,borderRadius:10,padding:"10px 12px",border:"1.5px solid "+(acc.active?BDR:"#eee")}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:800,fontSize:13}}>{acc.title}</div>
+                          <div style={{fontWeight:700,fontSize:14,color:GN,marginTop:2}}>{acc.number}</div>
+                          <div style={{fontSize:12,color:MUTED}}>{acc.name}</div>
+                        </div>
+                        <label style={{display:"flex",gap:5,alignItems:"center",fontSize:12,cursor:"pointer",fontWeight:700,flexShrink:0}}>
+                          <input type="checkbox" checked={acc.active}
+                                 onChange={()=>setSt(d=>Object.assign({},d,{paymentAccounts:(d.paymentAccounts||[]).map(a=>a.id===acc.id?Object.assign({},a,{active:!a.active}):a)}))}/>
+                          Show
+                        </label>
+                        <button onClick={()=>setSt(d=>Object.assign({},d,{paymentAccounts:(d.paymentAccounts||[]).filter(a=>a.id!==acc.id)}))}
+                                style={bs("#FFEBEE",RED,{padding:"4px 9px",fontSize:11,flexShrink:0})}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Add new account */}
+                  <AddPaymentAccount onAdd={acc=>setSt(d=>Object.assign({},d,{paymentAccounts:[...(d.paymentAccounts||[]),acc]}))}/>
                 </div>
               </div>
+            </div>
+            {/* Security */}
+            <div style={{background:"#fff",borderRadius:16,padding:22,boxShadow:SHD,marginTop:18}}>
+              <h3 style={{color:GM,marginTop:0}}>Security</h3>
+              <label style={{fontSize:12,fontWeight:700,color:MUTED,display:"block",marginBottom:3}}>Admin Password</label>
+              <input type="password" value={st.pw||""} onChange={e=>setSt(d=>Object.assign({},d,{pw:e.target.value}))} style={INP}/>
+              <p style={{color:MUTED,fontSize:11,marginTop:6}}>Synced to Firebase — all devices.</p>
             </div>
             <button onClick={()=>saveStore()} style={bs(GN,"#fff",{marginTop:18,padding:"11px 30px",fontSize:15})}>{saving?"Saving…":"💾 Save Settings"}</button>
           </div>
         )}
 
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD PAYMENT ACCOUNT FORM
+// ─────────────────────────────────────────────────────────────────────────────
+function AddPaymentAccount({ onAdd }) {
+  const blank = {title:"",number:"",name:"",type:"EasyPaisa",active:true};
+  const [form, setForm] = useState(blank);
+  const set = (k,v) => setForm(x=>Object.assign({},x,{[k]:v}));
+  function save(){
+    if(!form.title.trim()||!form.number.trim()){alert("Title and number required");return;}
+    onAdd(Object.assign({},form,{id:Date.now()}));
+    setForm(blank);
+  }
+  return(
+    <div style={{borderTop:"1.5px solid #C8E6C9",paddingTop:12,marginTop:4}}>
+      <div style={{fontSize:13,fontWeight:700,color:GN,marginBottom:8}}>+ Add Account</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        <div>
+          <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Label (shown to customer)</label>
+          <input value={form.title} onChange={e=>set("title",e.target.value)} placeholder="e.g. EasyPaisa / MCB Bank" style={INP}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Account / Phone Number</label>
+          <input value={form.number} onChange={e=>set("number",e.target.value)} placeholder="03XX-XXXXXXX or IBAN" style={INP}/>
+        </div>
+        <div style={{gridColumn:"1/-1"}}>
+          <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Account Holder Name / Bank</label>
+          <input value={form.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. Hassan Rasool — MCB Bank" style={INP}/>
+        </div>
+      </div>
+      <button onClick={save} style={bs(GN,"#fff",{padding:"8px 18px",fontSize:13})}>Add Account</button>
+    </div>
+  );
+}
+function SingleAddForm({ cats, onAdd }) {
+  const blank = {n:"",u:"",c:cats[0]||"",p:"",unit:"kg",s:"",e:"🛒",d:"",t:"",f:false,img:""};
+  const [form, setForm] = useState(blank);
+  function set(k,v){ setForm(x=>Object.assign({},x,{[k]:v})); }
+  function save(){
+    if(!form.n||!form.p){alert("Name & price required");return;}
+    onAdd(Object.assign({},form,{id:Date.now(),p:+form.p,s:+form.s||0}));
+    setForm(blank);
+  }
+  return(
+    <div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+        {[["n","Name (English)"],["u","اردو نام"],["p","Price ₨"],["unit","Unit"],["s","Stock"],["e","Emoji"],["d","Description"],["t","Search Tags"]].map(([k,lbl])=>(
+          <div key={k}>
+            <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>{lbl}</label>
+            <input value={form[k]} onChange={e=>set(k,e.target.value)} style={INP}/>
+          </div>
+        ))}
+        <div>
+          <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Category</label>
+          <select value={form.c} onChange={e=>set("c",e.target.value)} style={INP}>
+            {cats.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:MUTED,fontWeight:700,display:"block",marginBottom:3}}>Image</label>
+          <ImgUpload currentImg={form.img} onDone={url=>set("img",url)}/>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:7,paddingTop:18}}>
+          <input type="checkbox" id="feat_s" checked={form.f} onChange={e=>set("f",e.target.checked)}/>
+          <label htmlFor="feat_s" style={{cursor:"pointer",fontWeight:700,fontSize:13}}>⭐ Featured</label>
+        </div>
+      </div>
+      <button onClick={save} style={bs(GN,"#fff",{marginTop:12,padding:"9px 22px"})}>Add Product</button>
     </div>
   );
 }
@@ -755,53 +1066,41 @@ export default function App(){
   const [orders, setOrders] = useState([]);
   const [saved,  setSaved]  = useState([]);
   const [loading,setLoading]= useState(true);
+  const [cart,    setCart]    = useState([]);
+  const [drawer,  setDrawer]  = useState(false);
+  const [screen,  setScreen]  = useState("store");
+  const [curOrd,  setCurOrd]  = useState(null);
+  const [ordTotal,setOrdTotal]= useState(0);
+  const [search,  setSearch]  = useState("");
+  const [cat,     setCat]     = useState("All");
+  const [pw,      setPw]      = useState("");
+  const [pwErr,   setPwErr]   = useState(false);
 
-  const [cart,     setCart]    = useState([]);
-  const [drawer,   setDrawer]  = useState(false);
-  const [screen,   setScreen]  = useState("store");
-  const [curOrd,   setCurOrd]  = useState(null);
-  const [ordTotal, setOrdTotal]= useState(0);
-  const [search,   setSearch]  = useState("");
-  const [cat,      setCat]     = useState("All");
-  const [pw,       setPw]      = useState("");
-  const [pwErr,    setPwErr]   = useState(false);
-
-  // Load store config from Firebase once, then listen for changes
   useEffect(()=>{
     (async()=>{
-      // Load store config
-      const s = await fbGet(STORE_PATH);
-      const initial = s || SEED;
-      if(!s) await fbSet(STORE_PATH, SEED); // first ever launch — seed Firebase
-      setStore(initial);
-
-      // Load saved orders from localStorage (device-local)
+      const s=await fbGet(STORE_PATH);
+      const init=s||SEED;
+      if(!s) await fbSet(STORE_PATH,SEED);
+      setStore(init);
       setSaved(lsGet(SAVED_LS)||[]);
-
       setLoading(false);
     })();
-
-    // Live listener for store config changes
-    const unsubStore = fbListen(STORE_PATH, data => { if(data) setStore(data); });
-
-    // Live listener for orders — fires instantly on any device when new order arrives
-    const unsubOrders = fbListenOrders(data => setOrders(data));
-
+    const unsubStore  = fbListen(STORE_PATH, d=>{ if(d) setStore(d); });
+    const unsubOrders = fbListenOrders(d=>setOrders(d));
     return ()=>{ unsubStore(); unsubOrders(); };
   },[]);
 
-  const saveStore  = async d => { setStore(d); await fbSet(STORE_PATH, d); };
-  const saveSaved  = v        => { setSaved(v); lsSet(SAVED_LS, v); };
+  const saveStore = async d=>{ setStore(d); await fbSet(STORE_PATH,d); };
+  const saveSaved = v=>{ setSaved(v); lsSet(SAVED_LS,v); };
 
   function addToCart(item,qty){ setCart(c=>{ const x=c.find(i=>i.id===item.id); return x?c.map(i=>i.id===item.id?Object.assign({},i,{qty:i.qty+qty}):i):[...c,Object.assign({},item,{qty})]; }); }
   function updCart(id,qty){ setCart(c=>qty<=0?c.filter(i=>i.id!==id):c.map(i=>i.id===id?Object.assign({},i,{qty}):i)); }
   function rmCart(id){ setCart(c=>c.filter(i=>i.id!==id)); }
 
   async function submitOrder(od){
-    await fbAddOrder(od);           // saved to Firestore — all devices see it immediately
+    await fbAddOrder(od);
     setCurOrd(od); setCart([]); setDrawer(false); setScreen("success");
   }
-
   function saveOrder(name){
     if(!curOrd) return;
     const entry={id:Date.now(),name,at:new Date().toISOString(),
@@ -862,7 +1161,6 @@ export default function App(){
 
       <Ticker tickers={store.tickers}/>
 
-      {/* HEADER */}
       <header style={{background:GN,color:"#fff",position:"sticky",top:0,zIndex:500,boxShadow:"0 3px 20px rgba(0,0,0,0.22)"}}>
         <div style={{maxWidth:1280,margin:"0 auto",padding:"10px 14px 8px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
           <div style={{flexShrink:0,cursor:"pointer"}} onClick={()=>{setScreen("store");setSearch("");setCat("All");}}>
@@ -870,11 +1168,7 @@ export default function App(){
             <div style={{fontFamily:"'Noto Nastaliq Urdu',serif",fontSize:12,opacity:0.82}}>حسن کریانہ اسٹور</div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
-            {saved.length>0&&(
-              <button onClick={()=>setScreen("saved")} style={bs("rgba(255,255,255,0.12)","#fff",{padding:"7px 11px",fontSize:12,borderRadius:9,border:"1px solid rgba(255,255,255,0.22)"})}>
-                📋 {saved.length}
-              </button>
-            )}
+            {saved.length>0&&<button onClick={()=>setScreen("saved")} style={bs("rgba(255,255,255,0.12)","#fff",{padding:"7px 11px",fontSize:12,borderRadius:9,border:"1px solid rgba(255,255,255,0.22)"})}>📋 {saved.length}</button>}
             <button onClick={()=>setDrawer(true)}
                     style={{background:cartCount>0?GOLD:"rgba(255,255,255,0.12)",color:cartCount>0?GN:"#fff",border:"none",borderRadius:10,padding:"8px 13px",cursor:"pointer",fontWeight:900,fontSize:13,display:"flex",alignItems:"center",gap:5,fontFamily:"'Nunito',sans-serif",transition:"all .2s"}}>
               🛒 {cartCount>0?<span style={{background:GN,color:GOLD,borderRadius:7,padding:"1px 7px",fontSize:11}}>{cartCount}</span>:"Cart"}
@@ -882,7 +1176,6 @@ export default function App(){
             <button onClick={()=>setScreen("login")} style={bs("rgba(255,255,255,0.12)","#fff",{padding:"7px 11px",fontSize:12,borderRadius:9,border:"1px solid rgba(255,255,255,0.22)"})}>⚙ Admin</button>
           </div>
         </div>
-        {/* Full-width search row */}
         <div style={{maxWidth:1280,margin:"0 auto",padding:"0 14px 12px",position:"relative"}}>
           <span style={{position:"absolute",left:26,top:"50%",transform:"translateY(-60%)",fontSize:16,pointerEvents:"none"}}>🔍</span>
           <input value={search} onChange={e=>{setSearch(e.target.value);setScreen("store");}}
@@ -896,7 +1189,6 @@ export default function App(){
 
       {screen==="store"&&(
         <div style={{maxWidth:1280,margin:"0 auto",padding:"20px 14px 60px"}}>
-          {/* Hero */}
           <div style={{background:"linear-gradient(135deg,#1B5E20 0%,#2E7D32 60%,#66BB6A 100%)",borderRadius:20,padding:"24px 26px",marginBottom:22,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:14,position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",right:-10,top:-18,fontSize:120,opacity:0.07,pointerEvents:"none"}}>🛒</div>
             <div>
@@ -905,12 +1197,9 @@ export default function App(){
               <p style={{margin:0,color:"rgba(255,255,255,0.73)",fontSize:13}}>📍 {store.info.address}</p>
               {store.info.deliveryNote&&<p style={{margin:"5px 0 0",color:GOLD,fontSize:12,fontWeight:700}}>🚚 {store.info.deliveryNote}</p>}
             </div>
-            <a href={"tel:"+store.info.phone} style={{background:GOLD,color:GN,borderRadius:14,padding:"11px 22px",fontWeight:900,fontSize:15,flexShrink:0,textDecoration:"none",display:"inline-block"}}>
-              📞 {store.info.phone}
-            </a>
+            <a href={"tel:"+store.info.phone} style={{background:GOLD,color:GN,borderRadius:14,padding:"11px 22px",fontWeight:900,fontSize:15,flexShrink:0,textDecoration:"none",display:"inline-block"}}>📞 {store.info.phone}</a>
           </div>
 
-          {/* Popular */}
           {featured.length>0&&!search.trim()&&cat==="All"&&(
             <div style={{marginBottom:22}}>
               <h2 style={{color:GN,marginBottom:10,fontSize:18}}>⭐ Popular Items</h2>
@@ -920,7 +1209,9 @@ export default function App(){
                        style={{background:"#fff",borderRadius:13,padding:"10px 14px",display:"flex",gap:10,alignItems:"center",cursor:"pointer",flexShrink:0,border:"1.5px solid #C8E6C9",boxShadow:SHD,minWidth:180,transition:"background .15s"}}
                        onMouseEnter={e=>e.currentTarget.style.background=BG}
                        onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-                    <span style={{fontSize:26}}>{item.e}</span>
+                    <div style={{width:32,height:32,borderRadius:6,overflow:"hidden",flexShrink:0,background:"#DCEDC8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>
+                      {item.img?<img src={item.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:item.e}
+                    </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontWeight:800,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.n}</div>
                       <div style={{fontWeight:900,color:GM,fontSize:13}}>₨{item.p}/{item.unit}</div>
@@ -932,7 +1223,6 @@ export default function App(){
             </div>
           )}
 
-          {/* Deals */}
           {store.deals.filter(d=>d.on).length>0&&!search.trim()&&(
             <div style={{marginBottom:22}}>
               <h2 style={{color:GN,marginBottom:10,fontSize:18}}>🎁 Special Deals</h2>
@@ -954,7 +1244,6 @@ export default function App(){
             </div>
           )}
 
-          {/* Category pills */}
           <div style={{display:"flex",gap:7,overflowX:"auto",paddingBottom:8,marginBottom:14}}>
             {allCats.map(c=>(
               <button key={c} onClick={()=>{setCat(c);setSearch("");}}
@@ -984,7 +1273,7 @@ export default function App(){
 
       {screen==="order"&&(
         <div style={{maxWidth:1280,margin:"0 auto",padding:"22px 14px 60px"}}>
-          <OrderForm cart={cart} total={ordTotal} info={store.info} onSubmit={submitOrder} onBack={()=>{setDrawer(true);setScreen("store");}}/>
+          <OrderForm cart={cart} total={ordTotal} info={store.info} paymentAccounts={store.paymentAccounts||[]} onSubmit={submitOrder} onBack={()=>{setDrawer(true);setScreen("store");}}/>
         </div>
       )}
 
