@@ -1,10 +1,69 @@
 import { useState, useEffect, useRef } from "react";
 import { fbGet, fbSet, fbListen, fbAddOrder, fbListenOrders,
-         fbUpdateOrderStatus, fbUploadImage } from "./firebase.js";
+         fbUpdateOrderStatus } from "./firebase.js";
 
 // ── Storage paths ─────────────────────────────────────────────────────────────
 const STORE_PATH = "config/store";
 const SAVED_LS   = "hk_saved_v5";
+
+// ── Cloudinary image upload ───────────────────────────────────────────────────
+// 1. Create free account at cloudinary.com
+// 2. Go to Settings → Upload → Upload presets → Add upload preset
+//    Set "Signing Mode" to "Unsigned" → Save → copy the preset name
+// 3. Find your Cloud Name on the Cloudinary dashboard (top left)
+// 4. Paste both below:
+const CLOUDINARY_CLOUD_NAME = "PASTE_YOUR_CLOUD_NAME_HERE";
+const CLOUDINARY_UPLOAD_PRESET = "PASTE_YOUR_UPLOAD_PRESET_HERE";
+
+async function cloudinaryUpload(file, onProgress) {
+  // Resize/compress image before upload to save space and speed up loading
+  const compressed = await compressImage(file, 800, 0.82);
+  const form = new FormData();
+  form.append("file", compressed);
+  form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  form.append("folder", "hassan-karyana");
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`);
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable && onProgress)
+        onProgress(Math.round(e.loaded / e.total * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        const res = JSON.parse(xhr.responseText);
+        // Use f_auto,q_auto for auto format+quality (loads faster on mobile)
+        const url = res.secure_url.replace("/upload/", "/upload/f_auto,q_auto,w_600/");
+        resolve(url);
+      } else {
+        reject(new Error("Cloudinary upload failed: " + xhr.status));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(form);
+  });
+}
+
+// Compress image client-side before uploading (keeps files small)
+function compressImage(file, maxWidth, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => resolve(blob||file), "image/jpeg", quality);
+    };
+    img.onerror = () => resolve(file); // fallback to original
+    img.src = url;
+  });
+}
 
 function lsGet(k)   { try { const r=localStorage.getItem(k); return r?JSON.parse(r):null; } catch{return null;} }
 function lsSet(k,v) { try { localStorage.setItem(k,JSON.stringify(v)); } catch{} }
@@ -103,14 +162,17 @@ function ImgUpload({ currentImg, onDone }) {
   async function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { setErr("Max 5MB"); return; }
+    if (file.size > 10 * 1024 * 1024) { setErr("Max 10MB"); return; }
+    if (CLOUDINARY_CLOUD_NAME === "PASTE_YOUR_CLOUD_NAME_HERE") {
+      setErr("Add Cloudinary keys in App.jsx first"); return;
+    }
     setErr(""); setProg(0);
     try {
-      const url = await fbUploadImage(file, setProg);
+      const url = await cloudinaryUpload(file, setProg);
       onDone(url);
       setProg(null);
     } catch(ex) {
-      setErr("Upload failed — check Storage rules");
+      setErr("Upload failed — check Cloudinary keys");
       setProg(null);
       console.error(ex);
     }
@@ -167,12 +229,15 @@ function BulkAdd({ cats, onAdd, onClose }) {
 
   async function handleImg(idx, file) {
     if (!file) return;
-    if (file.size > 5*1024*1024) { alert("Max 5MB per image"); return; }
+    if (file.size > 10*1024*1024) { alert("Max 10MB per image"); return; }
+    if (CLOUDINARY_CLOUD_NAME === "PASTE_YOUR_CLOUD_NAME_HERE") {
+      alert("Add Cloudinary keys in App.jsx first"); return;
+    }
     setUploadingIdx(idx);
     try {
-      const url = await fbUploadImage(file, ()=>{});
+      const url = await cloudinaryUpload(file, ()=>{});
       setRow(idx, "img", url);
-    } catch(e) { alert("Upload failed"); }
+    } catch(e) { alert("Upload failed — check Cloudinary keys"); }
     setUploadingIdx(null);
   }
 
