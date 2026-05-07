@@ -2,21 +2,26 @@
 // Paste your Firebase config here
 // Firebase Console → Project Settings → Your Apps → firebaseConfig
 // ─────────────────────────────────────────────────────────────────────────────
-import { initializeApp }   from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot,
-         collection, addDoc, query, orderBy, updateDoc } from "firebase/firestore";
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey:            "PASTE_YOUR_API_KEY_HERE",
-  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
-  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
-  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId:             "PASTE_YOUR_APP_ID_HERE",
+  apiKey: "AIzaSyBpEm8iHeBQXK5LJJ9Etfq1PVwg7H7rmfw",
+  authDomain: "hassan-karyana-abaad.firebaseapp.com",
+  projectId: "hassan-karyana-abaad",
+  storageBucket: "hassan-karyana-abaad.firebasestorage.app",
+  messagingSenderId: "306931903406",
+  appId: "1:306931903406:web:086a7f96024162e379763f"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+
+const app = initializeApp(firebaseConfig);
+
 
 export async function fbGet(docPath) {
   try {
