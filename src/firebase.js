@@ -2,12 +2,10 @@
 // Paste your Firebase config here
 // Firebase Console → Project Settings → Your Apps → firebaseConfig
 // ─────────────────────────────────────────────────────────────────────────────
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { initializeApp }   from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot,
+         collection, addDoc, query, orderBy, updateDoc } from "firebase/firestore";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBpEm8iHeBQXK5LJJ9Etfq1PVwg7H7rmfw",
   authDomain: "hassan-karyana-abaad.firebaseapp.com",
@@ -17,11 +15,8 @@ const firebaseConfig = {
   appId: "1:306931903406:web:086a7f96024162e379763f"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-const app = initializeApp(firebaseConfig);
-
+const db  = getFirestore(app);
 
 export async function fbGet(docPath) {
   try {
