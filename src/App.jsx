@@ -12,8 +12,8 @@ const SAVED_LS   = "hk_saved_v5";
 //    Set "Signing Mode" to "Unsigned" → Save → copy the preset name
 // 3. Find your Cloud Name on the Cloudinary dashboard (top left)
 // 4. Paste both below:
-const CLOUDINARY_CLOUD_NAME = "PASTE_YOUR_CLOUD_NAME_HERE";
-const CLOUDINARY_UPLOAD_PRESET = "PASTE_YOUR_UPLOAD_PRESET_HERE";
+const CLOUDINARY_CLOUD_NAME = "dtfgwduac";
+const CLOUDINARY_UPLOAD_PRESET = "bo1jbyfl";
 
 async function cloudinaryUpload(file, onProgress) {
   // Resize/compress image before upload to save space and speed up loading
