@@ -1,29 +1,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// STEP: Paste your Firebase config here
-// Get it from: Firebase Console → Your Project → Project Settings → Your Apps
+// Paste your Firebase config here
+// Firebase Console → Project Settings → Your Apps → firebaseConfig
 // ─────────────────────────────────────────────────────────────────────────────
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, orderBy } from "firebase/firestore";
+import { initializeApp }                                           from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot,
+         collection, addDoc, query, orderBy, updateDoc }          from "firebase/firestore";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL }  from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBpEm8iHeBQXK5LJJ9Etfq1PVwg7H7rmfw",
-  authDomain: "hassan-karyana-abaad.firebaseapp.com",
-  projectId: "hassan-karyana-abaad",
-  storageBucket: "hassan-karyana-abaad.firebasestorage.app",
-  messagingSenderId: "306931903406",
-  appId: "1:306931903406:web:086a7f96024162e379763f"
+  apiKey:            "PASTE_YOUR_API_KEY_HERE",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN_HERE",
+  projectId:         "PASTE_YOUR_PROJECT_ID_HERE",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
+  appId:             "PASTE_YOUR_APP_ID_HERE",
 };
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const storage = getStorage(app);
 
+// ── Firestore ─────────────────────────────────────────────────────────────────
 
-
-
-
-// ── Firestore helpers ─────────────────────────────────────────────────────────
-
-// Read a single document (store config, etc.)
 export async function fbGet(docPath) {
   try {
     const snap = await getDoc(doc(db, ...docPath.split("/")));
@@ -31,28 +29,24 @@ export async function fbGet(docPath) {
   } catch(e) { console.warn("fbGet failed", e); return null; }
 }
 
-// Write a single document
 export async function fbSet(docPath, value) {
   try {
     await setDoc(doc(db, ...docPath.split("/")), { value }, { merge: false });
   } catch(e) { console.warn("fbSet failed", e); }
 }
 
-// Real-time listener on a document — calls onChange(data) whenever it changes
 export function fbListen(docPath, onChange) {
   return onSnapshot(doc(db, ...docPath.split("/")), snap => {
     if (snap.exists()) onChange(snap.data().value);
   });
 }
 
-// Add a new order document to the orders collection
 export async function fbAddOrder(order) {
   try {
     await addDoc(collection(db, "orders"), { ...order, createdAt: new Date().toISOString() });
   } catch(e) { console.warn("fbAddOrder failed", e); }
 }
 
-// Real-time listener on all orders — calls onChange(ordersArray) on any change
 export function fbListenOrders(onChange) {
   const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
   return onSnapshot(q, snap => {
@@ -60,10 +54,28 @@ export function fbListenOrders(onChange) {
   });
 }
 
-// Update order status
 export async function fbUpdateOrderStatus(orderId, status) {
   try {
-    const { updateDoc } = await import("firebase/firestore");
     await updateDoc(doc(db, "orders", orderId), { status });
   } catch(e) { console.warn("fbUpdateOrderStatus failed", e); }
+}
+
+// ── Storage image upload ──────────────────────────────────────────────────────
+// Uploads a File to /products/ in Firebase Storage.
+// onProgress(0-100) called during upload.
+// Returns public download URL string.
+
+export function fbUploadImage(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const safe = file.name.replace(/[^a-z0-9.]/gi, "_").toLowerCase();
+    const path = "products/" + Date.now() + "_" + safe;
+    const sref = ref(storage, path);
+    const task = uploadBytesResumable(sref, file);
+    task.on(
+      "state_changed",
+      snap => onProgress && onProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+      err  => reject(err),
+      ()   => getDownloadURL(task.snapshot.ref).then(resolve).catch(reject)
+    );
+  });
 }
