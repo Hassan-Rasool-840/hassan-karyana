@@ -12,8 +12,8 @@ const SAVED_LS   = "hk_saved_v5";
 //    Set "Signing Mode" to "Unsigned" → Save → copy the preset name
 // 3. Find your Cloud Name on the Cloudinary dashboard (top left)
 // 4. Paste both below:
-const CLOUDINARY_CLOUD_NAME = "dtfgwduac";
-const CLOUDINARY_UPLOAD_PRESET = "bo1jbyfl";
+const CLOUDINARY_CLOUD_NAME = "PASTE_YOUR_CLOUD_NAME_HERE";
+const CLOUDINARY_UPLOAD_PRESET = "PASTE_YOUR_UPLOAD_PRESET_HERE";
 
 async function cloudinaryUpload(file, onProgress) {
   // Resize/compress image before upload to save space and speed up loading
@@ -655,6 +655,64 @@ function SavedOrders({saved,catalog,onReorder,onDelete,onBack}){
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CATEGORY RENAME — click name to edit inline
+// ─────────────────────────────────────────────────────────────────────────────
+function CatRenameField({ name, onRename }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(name);
+  useEffect(()=>setVal(name),[name]);
+  function done() {
+    setEditing(false);
+    if(val.trim() && val.trim()!==name) onRename(val.trim());
+    else setVal(name);
+  }
+  if(editing) return(
+    <input value={val} onChange={e=>setVal(e.target.value)} autoFocus
+           onBlur={done} onKeyDown={e=>{ if(e.key==="Enter") done(); if(e.key==="Escape"){setVal(name);setEditing(false);} }}
+           style={Object.assign({},INP,{flex:1,padding:"6px 10px",fontSize:14,fontWeight:700})}/>
+  );
+  return(
+    <div style={{flex:1,cursor:"pointer"}} onClick={()=>setEditing(true)}
+         title="Click to rename">
+      <div style={{fontWeight:800,fontSize:14}}>{name}</div>
+      <div style={{fontSize:11,color:MUTED}}>✏️ Click to rename</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BULK REASSIGN — move all items from one category to another
+// ─────────────────────────────────────────────────────────────────────────────
+function BulkReassign({ cats, onReassign }) {
+  const [from, setFrom] = useState("");
+  const [to,   setTo]   = useState("");
+  return(
+    <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:200}}>
+        <label style={{fontSize:13,fontWeight:700,color:MUTED,flexShrink:0}}>From:</label>
+        <select value={from} onChange={e=>setFrom(e.target.value)} style={Object.assign({},INP,{flex:1})}>
+          <option value="">-- Select --</option>
+          {cats.map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:200}}>
+        <label style={{fontSize:13,fontWeight:700,color:MUTED,flexShrink:0}}>To:</label>
+        <select value={to} onChange={e=>setTo(e.target.value)} style={Object.assign({},INP,{flex:1})}>
+          <option value="">-- Select --</option>
+          {cats.filter(c=>c!==from).map(c=><option key={c}>{c}</option>)}
+        </select>
+      </div>
+      <button onClick={()=>{
+        if(!from||!to){alert("Select both categories");return;}
+        if(!window.confirm("Move ALL items from \""+from+"\" to \""+to+"\"?")) return;
+        onReassign(from,to);
+        setFrom(""); setTo("");
+      }} style={bs(GN,"#fff",{padding:"10px 18px",whiteSpace:"nowrap"})}>Move All →</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ADMIN
 // ─────────────────────────────────────────────────────────────────────────────
 function Admin({store,orders,onSaveStore,onLogout}){
@@ -854,8 +912,15 @@ function Admin({store,orders,onSaveStore,onLogout}){
                             <ImgUpload currentImg={it.img||""} onDone={url=>{up("img",url);saveStore();}}/>
                           </td>
                           <td style={{padding:"8px 12px"}}>{ed?<input value={it.n} onChange={e=>up("n",e.target.value)} style={Object.assign({},INP,{width:120})}/>:<span style={{fontWeight:700}}>{it.n}</span>}</td>
-                          <td style={{padding:"8px 12px",fontFamily:"'Noto Nastaliq Urdu',serif",fontSize:12}}>{it.u}</td>
-                          <td style={{padding:"8px 12px"}}><span style={{background:BG,borderRadius:5,padding:"2px 7px",fontSize:11}}>{it.c}</span></td>
+                          <td style={{padding:"8px 12px",fontFamily:"'Noto Nastaliq Urdu',serif",fontSize:12}}>{ed?<input value={it.u} onChange={e=>up("u",e.target.value)} style={Object.assign({},INP,{width:100,fontFamily:"'Noto Nastaliq Urdu',serif"})}/>:it.u}</td>
+                          <td style={{padding:"8px 12px"}}>
+                            {ed
+                              ? <select value={it.c} onChange={e=>up("c",e.target.value)} style={Object.assign({},INP,{width:130,padding:"5px 8px"})}>
+                                  {st.cats.map(c=><option key={c}>{c}</option>)}
+                                </select>
+                              : <span style={{background:BG,borderRadius:5,padding:"2px 7px",fontSize:11}}>{it.c}</span>
+                            }
+                          </td>
                           <td style={{padding:"8px 12px"}}>{ed?<input type="number" value={it.p} onChange={e=>up("p",+e.target.value)} style={Object.assign({},INP,{width:80})}/>:<span style={{fontWeight:900,color:GM}}>₨{it.p}</span>}</td>
                           <td style={{padding:"8px 12px",color:MUTED,fontSize:12}}>{it.unit}</td>
                           <td style={{padding:"8px 12px"}}>{ed?<input type="number" value={it.s} onChange={e=>up("s",+e.target.value)} style={Object.assign({},INP,{width:70})}/>:<span style={{fontWeight:700,color:it.s>10?"#388E3C":it.s>0?ORG:RED}}>{it.s}</span>}</td>
@@ -879,10 +944,15 @@ function Admin({store,orders,onSaveStore,onLogout}){
         {/* ── CATEGORIES ── */}
         {tab==="cats"&&(
           <div>
-            <h2 style={{color:GN,marginBottom:14}}>Manage Categories</h2>
+            <h2 style={{color:GN,marginBottom:4}}>Manage Categories</h2>
+            <p style={{color:MUTED,fontSize:13,marginBottom:16}}>Drag ↑↓ to reorder. Order here = order shown in store and admin.</p>
+
+            {/* Add new */}
             <div style={{background:"#fff",borderRadius:14,padding:18,marginBottom:18,boxShadow:SHD}}>
               <div style={{display:"flex",gap:10}}>
-                <input value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="New category…" style={Object.assign({},INP,{flex:1})}/>
+                <input value={newCat} onChange={e=>setNewCat(e.target.value)}
+                       placeholder="New category name…" style={Object.assign({},INP,{flex:1})}
+                       onKeyDown={e=>{if(e.key==="Enter"){const t=newCat.trim();if(!t||st.cats.includes(t)){showToast("Invalid or duplicate");return;}upStore(d=>Object.assign({},d,{cats:[...d.cats,t]}));setNewCat("");showToast("Added!");}}}/>
                 <button onClick={()=>{
                   const t=newCat.trim();
                   if(!t||st.cats.includes(t)){showToast("Invalid or duplicate");return;}
@@ -891,20 +961,81 @@ function Admin({store,orders,onSaveStore,onLogout}){
                 }} style={bs(GN,"#fff",{whiteSpace:"nowrap"})}>+ Add</button>
               </div>
             </div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
-              {st.cats.map(cat=>{
+
+            {/* Category list with reorder + rename */}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {st.cats.map((cat,idx)=>{
                 const cnt=st.items.filter(i=>i.c===cat).length;
                 return(
-                  <div key={cat} style={{background:"#fff",borderRadius:12,padding:"12px 16px",boxShadow:SHD,display:"flex",gap:12,alignItems:"center",border:"1.5px solid #C8E6C9"}}>
-                    <div><div style={{fontWeight:800,fontSize:14}}>{cat}</div><div style={{fontSize:12,color:MUTED}}>{cnt} item{cnt!==1?"s":""}</div></div>
+                  <div key={cat} style={{background:"#fff",borderRadius:12,padding:"12px 16px",
+                                          boxShadow:SHD,display:"flex",gap:10,alignItems:"center",
+                                          border:"1.5px solid #C8E6C9"}}>
+                    {/* Position arrows */}
+                    <div style={{display:"flex",flexDirection:"column",gap:2,flexShrink:0}}>
+                      <button
+                        disabled={idx===0}
+                        onClick={()=>{
+                          const c=[...st.cats];
+                          [c[idx-1],c[idx]]=[c[idx],c[idx-1]];
+                          upStore(d=>Object.assign({},d,{cats:c}));
+                        }}
+                        style={bs(idx===0?"#f5f5f5":BG,idx===0?"#ccc":GN,{padding:"2px 8px",fontSize:13,borderRadius:6,cursor:idx===0?"default":"pointer"})}>▲</button>
+                      <button
+                        disabled={idx===st.cats.length-1}
+                        onClick={()=>{
+                          const c=[...st.cats];
+                          [c[idx],c[idx+1]]=[c[idx+1],c[idx]];
+                          upStore(d=>Object.assign({},d,{cats:c}));
+                        }}
+                        style={bs(idx===st.cats.length-1?"#f5f5f5":BG,idx===st.cats.length-1?"#ccc":GN,{padding:"2px 8px",fontSize:13,borderRadius:6,cursor:idx===st.cats.length-1?"default":"pointer"})}>▼</button>
+                    </div>
+
+                    {/* Position number */}
+                    <div style={{width:24,height:24,borderRadius:"50%",background:BG,
+                                 display:"flex",alignItems:"center",justifyContent:"center",
+                                 fontSize:11,fontWeight:800,color:GN,flexShrink:0}}>
+                      {idx+1}
+                    </div>
+
+                    {/* Name — click to rename */}
+                    <CatRenameField
+                      name={cat}
+                      onRename={newName=>{
+                        if(!newName.trim()||newName===cat) return;
+                        if(st.cats.includes(newName)){showToast("Name already exists");return;}
+                        // Update category name AND update all items using this category
+                        upStore(d=>Object.assign({},d,{
+                          cats: d.cats.map(c=>c===cat?newName:c),
+                          items: d.items.map(i=>i.c===cat?Object.assign({},i,{c:newName}):i),
+                        }));
+                        showToast("Renamed & all items updated!");
+                      }}
+                    />
+
+                    <div style={{fontSize:12,color:MUTED,flexShrink:0}}>{cnt} item{cnt!==1?"s":""}</div>
+
+                    {/* Delete */}
                     <button onClick={()=>{
-                      if(cnt>0){showToast("Reassign "+cnt+" items first");return;}
-                      if(!window.confirm("Delete?"))return;
+                      if(cnt>0){showToast("Move "+cnt+" items to another category first");return;}
+                      if(!window.confirm("Delete category \""+cat+"\"?"))return;
                       upStore(d=>Object.assign({},d,{cats:d.cats.filter(c=>c!==cat)}));
-                    }} style={bs("#FFEBEE",RED,{padding:"4px 10px",fontSize:11})}>✕</button>
+                      showToast("Deleted!");
+                    }} style={bs("#FFEBEE",RED,{padding:"4px 10px",fontSize:11,flexShrink:0})}>✕ Delete</button>
                   </div>
                 );
               })}
+            </div>
+
+            {/* Bulk reassign — move all items from one cat to another */}
+            <div style={{background:"#fff",borderRadius:14,padding:18,marginTop:20,boxShadow:SHD}}>
+              <h3 style={{color:GM,marginTop:0}}>🔄 Move all items between categories</h3>
+              <p style={{fontSize:13,color:MUTED,marginTop:0}}>Useful if you want to merge two categories or reorganize.</p>
+              <BulkReassign cats={st.cats} onReassign={(from,to)=>{
+                upStore(d=>Object.assign({},d,{
+                  items:d.items.map(i=>i.c===from?Object.assign({},i,{c:to}):i)
+                }));
+                showToast("All items moved from "+from+" → "+to);
+              }}/>
             </div>
           </div>
         )}
